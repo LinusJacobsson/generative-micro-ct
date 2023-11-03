@@ -1,0 +1,12 @@
+=========================
+         Vecka 44
+=========================
+- Skapade denna directory, och har läst första artikeln av Jens. 
+- Vi börjar samla in fler artiklar för att läsa på om nu under helgen. 
+- Har också laddat ner datan och börjat kolla på formatet där.
+
+=========================
+          Plan
+=========================
+- Förhoppningen är att ha valt ut en eller flera lovande modeller som kan finjusteras för vårt problem, 
+- och ha en bra koll på dataformatet.
