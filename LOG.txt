@@ -6,7 +6,22 @@
 - Har också laddat ner datan och börjat kolla på formatet där.
 
 =========================
-          Plan
+   Plan för vecka 45
 =========================
 - Förhoppningen är att ha valt ut en eller flera lovande modeller som kan finjusteras för vårt problem, 
 - och ha en bra koll på dataformatet.
+
+=========================
+         Vecka 45
+=========================
+- Vi har läst igenom den relevanta litteraturen och valt ut de mest hjälpsamma artiklarna.
+- Valde ut modellen från "Generative Modeling by Estimating Gradients of the Data Distribution" av Song och Ermon för vår första implementation.
+- Börjat lära oss PyTorch.
+
+=========================
+   Plan för vecka 46
+=========================
+- Fortsätta studera PyTorch
+- Börja implementera den valda modellen, utan betingning. 
+
+
