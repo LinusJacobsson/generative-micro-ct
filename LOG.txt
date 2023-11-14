@@ -15,7 +15,7 @@
          Vecka 45
 =========================
 - Vi har läst igenom den relevanta litteraturen och valt ut de mest hjälpsamma artiklarna.
-- Valde ut modellen från "Generative Modeling by Estimating Gradients of the Data Distribution" av Song och Ermon för vår första implementation.
+- Valde ut modellen från "Score-Based Generative Modeling through Stochastic Differential Equations."" av Song och Ermon för vår första implementation.
 - Börjat lära oss PyTorch.
 
 =========================
@@ -23,5 +23,18 @@
 =========================
 - Fortsätta studera PyTorch
 - Börja implementera den valda modellen, utan betingning. 
+
+=========================
+         Vecka 46
+=========================
+Måndag
+-------------------------
+- Studerade koden från "Score-Based Generative Modeling through Stochastic Differential Equations" och försökte förstå den
+- Laddade in medium-sized bilderna och skapade en klass för att kunna använda bilderna i koden
+- Testkörde koden för bilderna komprimerade till 28x28
+-------------------------
+Tisdag
+-------------------------
+- Anpassat Convulision Network så att bilder med olika storlek kan köras
 
 
