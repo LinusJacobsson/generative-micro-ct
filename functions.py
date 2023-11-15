@@ -89,7 +89,7 @@ class ScoreNet(nn.Module):
     self.gnorm4 = nn.GroupNorm(32, num_channels=channels[3])    
 
     # Decoding layers where the resolution increases
-    self.tconv4 = nn.ConvTranspose2d(channels[3], channels[2], 3, stride=2, bias=False)
+    self.tconv4 = nn.ConvTranspose2d(channels[3], channels[2], 3, stride=2, bias=False, output_padding=1)
     self.dense5 = Dense(embed_dim, channels[2])
     self.tgnorm4 = nn.GroupNorm(32, num_channels=channels[2])
     self.tconv3 = nn.ConvTranspose2d(channels[2] + channels[2], channels[1], 3, stride=2, bias=False, output_padding=1)    
