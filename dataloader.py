@@ -14,10 +14,12 @@ import numpy as np
 import sys
 import os
 from PIL import Image
+from torch.utils.data import Subset
+
 
 data_dir = '../../cropped_medium_res/'
 transform = transforms.Compose([
-    transforms.Resize((128, 128)),
+    transforms.Resize((32, 32)),
     transforms.ToTensor(),
 ])
 
@@ -38,15 +40,13 @@ class TumorDataSet(Dataset):
             image = self.transform(image)
 
         return image
+num_images = 1  # for example, to take the first 100 images
+subset_indices = list(range(num_images))
 
 dataset = TumorDataSet(data_dir, transform)
-image = dataset[100]
-
-"""print(len(dataset))
-print(dataset[0])
-print(dataset[758])"""
-
+subset_dataset = Subset(dataset, subset_indices)
 dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+subset_dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=True)
 
 
 #@title Defining a time-dependent score-based model (double click to expand or collapse)
@@ -108,7 +108,7 @@ class ScoreNet(nn.Module):
     self.gnorm4 = nn.GroupNorm(32, num_channels=channels[3])    
 
     # Decoding layers where the resolution increases
-    self.tconv4 = nn.ConvTranspose2d(channels[3], channels[2], 3, stride=2, bias=False)
+    self.tconv4 = nn.ConvTranspose2d(channels[3], channels[2], 3, stride=2, bias=False, output_padding=1)
     self.dense5 = Dense(embed_dim, channels[2])
     self.tgnorm4 = nn.GroupNorm(32, num_channels=channels[2])
     self.tconv3 = nn.ConvTranspose2d(channels[2] + channels[2], channels[1], 3, stride=2, bias=False, output_padding=1)    
@@ -128,26 +128,26 @@ class ScoreNet(nn.Module):
     embed = self.act(self.embed(t))    
     # Encoding path
     h1 = self.conv1(x)
-    print(f"After conv1, shape: {h1.shape}")
+    #print(f"After conv1, shape: {h1.shape}")
     ## Incorporate information from t
     h1 += self.dense1(embed)
     ## Group normalization
     h1 = self.gnorm1(h1)
     h1 = self.act(h1)
     h2 = self.conv2(h1)
-    print(f"After conv2, shape: {h2.shape}")
+    #print(f"After conv2, shape: {h2.shape}")
 
     h2 += self.dense2(embed)
     h2 = self.gnorm2(h2)
     h2 = self.act(h2)
     h3 = self.conv3(h2)
-    print(f"After conv3, shape: {h3.shape}")
+    #print(f"After conv3, shape: {h3.shape}")
 
     h3 += self.dense3(embed)
     h3 = self.gnorm3(h3)
     h3 = self.act(h3)
     h4 = self.conv4(h3)
-    print(f"After conv4, shape: {h4.shape}")
+    #print(f"After conv4, shape: {h4.shape}")
 
     h4 += self.dense4(embed)
     h4 = self.gnorm4(h4)
@@ -155,25 +155,25 @@ class ScoreNet(nn.Module):
 
     # Decoding path
     h = self.tconv4(h4)
-    print(f"After tconv4, shape: {h.shape}")
+    #print(f"After tconv4, shape: {h.shape}")
 
     ## Skip connection from the encoding path
     h += self.dense5(embed)
     h = self.tgnorm4(h)
     h = self.act(h)
-    print(f"Before tconv3, shape of h: {h.shape} and h3: {h3.shape}")
+    #print(f"Before tconv3, shape of h: {h.shape} and h3: {h3.shape}")
 
     h = self.tconv3(torch.cat([h, h3], dim=1))
     h += self.dense6(embed)
     h = self.tgnorm3(h)
     h = self.act(h)
-    print(f"Before tconv2, shape of h: {h.shape} and h2: {h2.shape}")
+    #print(f"Before tconv2, shape of h: {h.shape} and h2: {h2.shape}")
 
     h = self.tconv2(torch.cat([h, h2], dim=1))
     h += self.dense7(embed)
     h = self.tgnorm2(h)
     h = self.act(h)
-    print(f"Before tconv1, shape of h: {h.shape} and h1: {h1.shape}")
+    #print(f"Before tconv1, shape of h: {h.shape} and h1: {h1.shape}")
 
     h = self.tconv1(torch.cat([h, h1], dim=1))
 
@@ -253,18 +253,18 @@ from tqdm import notebook
 score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
 #score_model = score_model.to(device)
 
-n_epochs =   50#@param {'type':'integer'}
+n_epochs =   20000#@param {'type':'integer'}
 ## size of a mini-batch
 batch_size =  32 #@param {'type':'integer'}
 ## learning rate
 lr=1e-4 #@param {'type':'number'}
-"""
+
 optimizer = Adam(score_model.parameters(), lr=lr)
 tqdm_epoch = tqdm.trange(n_epochs)
 for epoch in tqdm_epoch:
   avg_loss = 0.
   num_items = 0
-  for x in dataloader:
+  for x in subset_dataloader:
     #x = x.to(device)    
     loss = loss_fn(score_model, x, marginal_prob_std_fn)
     optimizer.zero_grad()
@@ -277,7 +277,7 @@ for epoch in tqdm_epoch:
   # Update the checkpoint after each epoch of training.
   torch.save(score_model.state_dict(), 'ckpt.pth')
 
-"""
+
   #@title Define the ODE sampler (double click to expand or collapse)
 
 from scipy import integrate
@@ -287,7 +287,7 @@ error_tolerance = 1e-5 #@param {'type': 'number'}
 def ode_sampler(score_model,
                 marginal_prob_std,
                 diffusion_coeff,
-                batch_size=64, 
+                batch_size=9, 
                 atol=error_tolerance, 
                 rtol=error_tolerance, 
                 device='cuda', 
@@ -311,7 +311,7 @@ def ode_sampler(score_model,
   t = torch.ones(batch_size, device=device)
   # Create the latent code
   if z is None:
-    init_x = torch.randn(batch_size, 1, 28, 28, device=device) \
+    init_x = torch.randn(batch_size, 1, 32, 32, device=device) \
       * marginal_prob_std(t)[:, None, None, None]
   else:
     init_x = z
@@ -349,7 +349,7 @@ device = 'cpu' #@param ['cuda', 'cpu'] {'type':'string'}
 ckpt = torch.load('ckpt.pth', map_location=device)
 score_model.load_state_dict(ckpt)
 
-sample_batch_size = 64 #@param {'type':'integer'}
+sample_batch_size = 9 #@param {'type':'integer'}
 sampler = ode_sampler #@param ['Euler_Maruyama_sampler', 'pc_sampler', 'ode_sampler'] {'type': 'raw'}
 
 ## Generate samples using the specified sampler.
