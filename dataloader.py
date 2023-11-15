@@ -27,28 +27,36 @@ class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
         self.data_dir = data_dir
         self.transform = transform
-        self.image_files = [f for f in sorted(os.listdir(data_dir))]
-    
+        self.image_files = [f for f in sorted(os.listdir(data_dir)) if os.path.isfile(os.path.join(data_dir, f)) and f.endswith('.tif')]
+
     def __len__(self):
         return len(self.image_files)
-    
+
     def __getitem__(self, idx):
         img_path = os.path.join(self.data_dir, self.image_files[idx])
-        image = Image.open(img_path).convert('L')
+        image = Image.open(img_path)
+        image = np.array(image)
 
+        # Normalize the 16-bit image data to range [0, 1]
+        image_8bit = (image / 256).astype(np.uint8)
+        # Convert numpy array to tensor
+        image_tensor = torch.tensor(image_8bit, dtype=torch.float32)
+
+        # Apply the transformation
         if self.transform:
-            image = self.transform(image)
+            image_tensor = self.transform(image_tensor.unsqueeze(0))
 
-        return image
+        return image_tensor  # Squeeze to remove the added batch dimension
 num_images = 1  # for example, to take the first 100 images
 subset_indices = list(range(num_images))
-
 dataset = TumorDataSet(data_dir, transform)
 subset_dataset = Subset(dataset, subset_indices)
 dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-subset_dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=True)
+subset_dataloader = DataLoader(subset_dataset, batch_size=32, shuffle=True)
 
 
+image_tensor = subset_dataset[0].squeeze()
+plt.imshow(image_tensor.numpy(), cmap='gray')
 #@title Defining a time-dependent score-based model (double click to expand or collapse)
 
 import torch
@@ -253,12 +261,12 @@ from tqdm import notebook
 score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
 #score_model = score_model.to(device)
 
-n_epochs =   20000#@param {'type':'integer'}
+n_epochs =   50000#@param {'type':'integer'}
 ## size of a mini-batch
 batch_size =  32 #@param {'type':'integer'}
 ## learning rate
-lr=1e-4 #@param {'type':'number'}
-
+lr=1e-3 #@param {'type':'number'}
+"""
 optimizer = Adam(score_model.parameters(), lr=lr)
 tqdm_epoch = tqdm.trange(n_epochs)
 for epoch in tqdm_epoch:
@@ -276,7 +284,7 @@ for epoch in tqdm_epoch:
   tqdm_epoch.set_description('Average Loss: {:5f}'.format(avg_loss / num_items))
   # Update the checkpoint after each epoch of training.
   torch.save(score_model.state_dict(), 'ckpt.pth')
-
+"""
 
   #@title Define the ODE sampler (double click to expand or collapse)
 
