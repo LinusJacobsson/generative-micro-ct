@@ -17,7 +17,7 @@ from PIL import Image
 
 data_dir = '../../cropped_medium_res/'
 transform = transforms.Compose([
-    transforms.Resize((28, 28)),
+    transforms.Resize((128, 128)),
     transforms.ToTensor(),
 ])
 
@@ -127,39 +127,54 @@ class ScoreNet(nn.Module):
     # Obtain the Gaussian random feature embedding for t   
     embed = self.act(self.embed(t))    
     # Encoding path
-    h1 = self.conv1(x)    
+    h1 = self.conv1(x)
+    print(f"After conv1, shape: {h1.shape}")
     ## Incorporate information from t
     h1 += self.dense1(embed)
     ## Group normalization
     h1 = self.gnorm1(h1)
     h1 = self.act(h1)
     h2 = self.conv2(h1)
+    print(f"After conv2, shape: {h2.shape}")
+
     h2 += self.dense2(embed)
     h2 = self.gnorm2(h2)
     h2 = self.act(h2)
     h3 = self.conv3(h2)
+    print(f"After conv3, shape: {h3.shape}")
+
     h3 += self.dense3(embed)
     h3 = self.gnorm3(h3)
     h3 = self.act(h3)
     h4 = self.conv4(h3)
+    print(f"After conv4, shape: {h4.shape}")
+
     h4 += self.dense4(embed)
     h4 = self.gnorm4(h4)
     h4 = self.act(h4)
 
     # Decoding path
     h = self.tconv4(h4)
+    print(f"After tconv4, shape: {h.shape}")
+
     ## Skip connection from the encoding path
     h += self.dense5(embed)
     h = self.tgnorm4(h)
     h = self.act(h)
+    print(f"Before tconv3, shape of h: {h.shape} and h3: {h3.shape}")
+
     h = self.tconv3(torch.cat([h, h3], dim=1))
     h += self.dense6(embed)
     h = self.tgnorm3(h)
     h = self.act(h)
+    print(f"Before tconv2, shape of h: {h.shape} and h2: {h2.shape}")
+
     h = self.tconv2(torch.cat([h, h2], dim=1))
     h += self.dense7(embed)
     h = self.tgnorm2(h)
     h = self.act(h)
+    print(f"Before tconv1, shape of h: {h.shape} and h1: {h1.shape}")
+
     h = self.tconv1(torch.cat([h, h1], dim=1))
 
     # Normalize output
@@ -237,13 +252,13 @@ from tqdm import notebook
 
 score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
 #score_model = score_model.to(device)
-"""
+
 n_epochs =   50#@param {'type':'integer'}
 ## size of a mini-batch
 batch_size =  32 #@param {'type':'integer'}
 ## learning rate
 lr=1e-4 #@param {'type':'number'}
-
+"""
 optimizer = Adam(score_model.parameters(), lr=lr)
 tqdm_epoch = tqdm.trange(n_epochs)
 for epoch in tqdm_epoch:
