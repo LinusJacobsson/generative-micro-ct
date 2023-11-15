@@ -35,6 +35,13 @@ Måndag
 -------------------------
 Tisdag
 -------------------------
-- Anpassat Convulision Network så att bilder med olika storlek kan köras
+- Anpassat Convulosion Network så att bilder med olika storlek kan köras
+- Testkörde koden
+-------------------------
+Onsdag
+-------------------------
+- Fixat inläsning av bilderna så att pixelintensiteten är korrekt
+- Snyggat till och delat upp koden i olika delar för funktioner, inläsning av bilder, träning och genering
+- Fått snygga generarade resultat vid väldigt låg upplösning (32x32)
 
 
