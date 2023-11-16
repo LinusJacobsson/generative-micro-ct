@@ -47,17 +47,37 @@ class TumorDataSet(Dataset):
             image_tensor = self.transform(image_tensor.unsqueeze(0))
 
         return image_tensor  # Squeeze to remove the added batch dimension
+
 num_images = 1  # for example, to take the first 100 images
+
+# Create a list of indices for the subset
 subset_indices = list(range(num_images))
+
+# Create a Subset instance
+# Initialize the dataset and dataloader
 dataset = TumorDataSet(data_dir, transform)
 subset_dataset = Subset(dataset, subset_indices)
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-subset_dataloader = DataLoader(subset_dataset, batch_size=32, shuffle=True)
 
+dataloader = DataLoader(dataset, batch_size=32, shuffle=False)
+subset_dataloader = DataLoader(subset_dataset, batch_size=1, shuffle=False)
 
-image_tensor = subset_dataset[0].squeeze()
-plt.imshow(image_tensor.numpy(), cmap='gray')
-#@title Defining a time-dependent score-based model (double click to expand or collapse)
+for im in subset_dataset:
+    # Extract the image tensor and remove any singleton dimensions
+    image_tensor = im.squeeze()
+
+    # Check if there's still an extra dimension (channel dimension)
+    if len(image_tensor.shape) == 3 and image_tensor.shape[0] == 1:
+        # Remove the channel dimension
+        image_tensor = image_tensor.squeeze(0)
+
+    # Convert tensor to numpy array for display
+    image_np = image_tensor.numpy()
+
+    # Plot the image
+    plt.imshow(image_np, cmap='gray')
+    plt.title('Sample Image from Dataset')
+    plt.axis('off')
+    plt.show()
 
 import torch
 import torch.nn as nn
@@ -261,12 +281,12 @@ from tqdm import notebook
 score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
 #score_model = score_model.to(device)
 
-n_epochs =   50000#@param {'type':'integer'}
+n_epochs =   10000#@param {'type':'integer'}
 ## size of a mini-batch
 batch_size =  32 #@param {'type':'integer'}
 ## learning rate
-lr=1e-3 #@param {'type':'number'}
-"""
+lr=1e-4 #@param {'type':'number'}
+
 optimizer = Adam(score_model.parameters(), lr=lr)
 tqdm_epoch = tqdm.trange(n_epochs)
 for epoch in tqdm_epoch:
@@ -284,7 +304,7 @@ for epoch in tqdm_epoch:
   tqdm_epoch.set_description('Average Loss: {:5f}'.format(avg_loss / num_items))
   # Update the checkpoint after each epoch of training.
   torch.save(score_model.state_dict(), 'ckpt.pth')
-"""
+
 
   #@title Define the ODE sampler (double click to expand or collapse)
 
@@ -316,6 +336,7 @@ def ode_sampler(score_model,
       otherwise, we start from the given z.
     eps: The smallest time step for numerical stability.
   """
+
   t = torch.ones(batch_size, device=device)
   # Create the latent code
   if z is None:
