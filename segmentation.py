@@ -5,6 +5,23 @@ from skimage.morphology import closing, square
 from skimage.segmentation import clear_border
 from skimage.measure import label, regionprops
 from skimage.color import label2rgb
+import os
+
+
+def process_images(input_folder, output_folder):
+    # Create the output folder if it doesn't exist
+    if not os.path.exists(output_folder):
+        os.makedirs(output_folder)
+
+    # Loop through all files in the input folder
+    for filename in os.listdir(input_folder):
+        if filename.endswith('.tif'):
+            input_path = os.path.join(input_folder, filename)
+            output_path = os.path.join(output_folder, filename)
+
+            # Apply your segmentation and cropping function
+            cropped_image = segment_and_crop(input_path, downsample_factor, expansion_margin)
+            imageio.imwrite(output_path, cropped_image)
 
 
 def segment_and_crop(image_path, downsample_factor, expansion_margin):
@@ -26,7 +43,14 @@ def segment_and_crop(image_path, downsample_factor, expansion_margin):
     # Hitta den största regionen, alltså tumören
     label_image = label(closed)
     regions = regionprops(label_image)
-    tumor_region = max(regions, key=lambda x: x.area)
+    #print(label_image)
+    #print(regions)
+    if not regions:
+      # När inga regioner hittas, använd hela bilden som tumörregion
+      print("No tumor region found. Using the entire image as the tumor region.")
+      return image
+    else:
+      tumor_region = max(regions, key=lambda x: x.area)
 
     # Beräkna områdesramen för tumörregionen
     tumor_bounding_box = tumor_region.bbox
@@ -49,17 +73,10 @@ def segment_and_crop(image_path, downsample_factor, expansion_margin):
     return tumor_cropped
 
 
-image_path = '/Users/linus/Desktop/cropped_medium_res/bin2_174_tumor_Nr56_x4_StitchPag_bin2_stitch_1282x2191x10810004.tif'
+input_folder_path = '/Users/David/OneDrive/Desktop/cropped_medium_res/'
+output_folder_path = '/Users/David/OneDrive/Desktop/OneDrive/segmented_medium_res/'
+
 downsample_factor = 10
-expansion_margin = 5 * downsample_factor # testa runt. För att fånga in tumören precis
+expansion_margin = 3 * downsample_factor # testa runt. För att fånga in tumören precis
 
-# Segmentera och beskär bilden
-cropped_image = segment_and_crop(image_path, downsample_factor, expansion_margin)
-
-
-#cropped_image_path = ''
-#imageio.imwrite(cropped_image_path, cropped_image)
-
-plt.imshow(cropped_image, cmap='gray')
-plt.axis('off')
-plt.show()
+process_images(input_folder_path, output_folder_path)
