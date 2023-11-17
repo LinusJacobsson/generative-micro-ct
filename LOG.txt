@@ -24,6 +24,8 @@
 - Fortsätta studera PyTorch
 - Börja implementera den valda modellen, utan betingning. 
 
+
+
 =========================
          Vecka 46
 =========================
@@ -43,5 +45,24 @@ Onsdag
 - Fixat inläsning av bilderna så att pixelintensiteten är korrekt
 - Snyggat till och delat upp koden i olika delar för funktioner, inläsning av bilder, träning och genering
 - Fått snygga generarade resultat vid väldigt låg upplösning (32x32)
+
+-------------------------
+Torsdag
+-------------------------
+- Skrev script för att segmentera bilderna kring tumörerna för reducera datamängden.
+- Började jobba med att reducera rutmönstret samt att efterlikna originalkontrasten.
+
+-------------------------
+Fredag
+-------------------------
+- Fortsatt träna på storlekarna 32x32 - 128x128
+- Fortsatt jobba med kontrastproblemen, kanske löst.
+- Fortsatt jobba med rutmönstret.
+
+=========================
+   Plan för vecka 47
+=========================
+- Lös problemen med rutmönstret och konstrasten.
+- Börja träna på större storlekar, förmodligen på Alvis.
 
 
