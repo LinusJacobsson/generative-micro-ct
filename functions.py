@@ -109,26 +109,26 @@ class ScoreNet(nn.Module):
     embed = self.act(self.embed(t))    
     # Encoding path
     h1 = self.conv1(x)
-    print(f"After conv1, shape: {h1.shape}")
+    #print(f"After conv1, shape: {h1.shape}")
     ## Incorporate information from t
     h1 += self.dense1(embed)
     ## Group normalization
     h1 = self.gnorm1(h1)
     h1 = self.act(h1)
     h2 = self.conv2(h1)
-    print(f"After conv2, shape: {h2.shape}")
+    #print(f"After conv2, shape: {h2.shape}")
 
     h2 += self.dense2(embed)
     h2 = self.gnorm2(h2)
     h2 = self.act(h2)
     h3 = self.conv3(h2)
-    print(f"After conv3, shape: {h3.shape}")
+    #print(f"After conv3, shape: {h3.shape}")
 
     h3 += self.dense3(embed)
     h3 = self.gnorm3(h3)
     h3 = self.act(h3)
     h4 = self.conv4(h3)
-    print(f"After conv4, shape: {h4.shape}")
+    #print(f"After conv4, shape: {h4.shape}")
 
     h4 += self.dense4(embed)
     h4 = self.gnorm4(h4)
@@ -136,25 +136,25 @@ class ScoreNet(nn.Module):
 
     # Decoding path
     h = self.tconv4(h4)
-    print(f"After tconv4, shape: {h.shape}")
+    #print(f"After tconv4, shape: {h.shape}")
 
     ## Skip connection from the encoding path
     h += self.dense5(embed)
     h = self.tgnorm4(h)
     h = self.act(h)
-    print(f"Before tconv3, shape of h: {h.shape} and h3: {h3.shape}")
+    #print(f"Before tconv3, shape of h: {h.shape} and h3: {h3.shape}")
 
     h = self.tconv3(torch.cat([h, h3], dim=1))
     h += self.dense6(embed)
     h = self.tgnorm3(h)
     h = self.act(h)
-    print(f"Before tconv2, shape of h: {h.shape} and h2: {h2.shape}")
+    #print(f"Before tconv2, shape of h: {h.shape} and h2: {h2.shape}")
 
     h = self.tconv2(torch.cat([h, h2], dim=1))
     h += self.dense7(embed)
     h = self.tgnorm2(h)
     h = self.act(h)
-    print(f"Before tconv1, shape of h: {h.shape} and h1: {h1.shape}")
+    #print(f"Before tconv1, shape of h: {h.shape} and h1: {h1.shape}")
 
     h = self.tconv1(torch.cat([h, h1], dim=1))
 
@@ -208,7 +208,7 @@ def loss_fn(model, x, marginal_prob_std, eps=1e-5):
   loss = torch.mean(torch.sum((score * std[:, None, None, None] + z)**2, dim=(1,2,3)))
   return loss
 
-
+error_tolerance = 1e-5
 def ode_sampler(score_model,
                 marginal_prob_std,
                 diffusion_coeff,
