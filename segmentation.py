@@ -5,6 +5,8 @@ from skimage.morphology import closing, square
 from skimage.segmentation import clear_border
 from skimage.measure import label, regionprops
 from skimage.color import label2rgb
+from skimage import exposure
+
 import os
 
 
@@ -12,6 +14,8 @@ def process_images(input_folder, output_folder):
     # Create the output folder if it doesn't exist
     if not os.path.exists(output_folder):
         os.makedirs(output_folder)
+    
+    no_tumor_count = 0  
 
     # Loop through all files in the input folder
     for filename in os.listdir(input_folder):
@@ -20,19 +24,25 @@ def process_images(input_folder, output_folder):
             output_path = os.path.join(output_folder, filename)
 
             # Apply your segmentation and cropping function
-            cropped_image = segment_and_crop(input_path, downsample_factor, expansion_margin)
+            cropped_image, tumor_found = segment_and_crop(input_path, downsample_factor, expansion_margin)
+
+            if not tumor_found:
+                no_tumor_count += 1  # Increment the counter
             imageio.imwrite(output_path, cropped_image)
+    print(f"Number of images without a proper tumor region: {no_tumor_count}")
 
 
 def segment_and_crop(image_path, downsample_factor, expansion_margin):
-
-    # Läs in bilden
+    # Read in the image
     image = imageio.imread(image_path)
 
-    # Minska bildens storlek
+    # Enhance contrast using Histogram Equalization
+    #image_equalized = exposure.equalize_hist(image)
+
+    # Downsample the image
     downsampled_image = image[::downsample_factor, ::downsample_factor]
 
-    # Använd Otsu thresholding
+    # Use Otsu thresholding
     thresh = threshold_otsu(downsampled_image)
     bw = downsampled_image > thresh
 
@@ -48,7 +58,7 @@ def segment_and_crop(image_path, downsample_factor, expansion_margin):
     if not regions:
       # När inga regioner hittas, använd hela bilden som tumörregion
       print("No tumor region found. Using the entire image as the tumor region.")
-      return image
+      return image, False
     else:
       tumor_region = max(regions, key=lambda x: x.area)
 
@@ -70,11 +80,11 @@ def segment_and_crop(image_path, downsample_factor, expansion_margin):
     tumor_cropped = image[expanded_bounding_box[0]:expanded_bounding_box[2], 
                           expanded_bounding_box[1]:expanded_bounding_box[3]]
 
-    return tumor_cropped
+    return tumor_cropped, True
 
 
-input_folder_path = '/Users/David/OneDrive/Desktop/cropped_medium_res/'
-output_folder_path = '/Users/David/OneDrive/Desktop/OneDrive/segmented_medium_res/'
+input_folder_path = '../../cropped_medium_res/'
+output_folder_path = '../../segmented_medium_res/'
 
 downsample_factor = 10
 expansion_margin = 3 * downsample_factor # testa runt. För att fånga in tumören precis
