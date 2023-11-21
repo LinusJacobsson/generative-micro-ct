@@ -34,11 +34,13 @@ Måndag
 - Studerade koden från "Score-Based Generative Modeling through Stochastic Differential Equations" och försökte förstå den
 - Laddade in medium-sized bilderna och skapade en klass för att kunna använda bilderna i koden
 - Testkörde koden för bilderna komprimerade till 28x28
+
 -------------------------
 Tisdag
 -------------------------
 - Anpassat Convulosion Network så att bilder med olika storlek kan köras
 - Testkörde koden
+
 -------------------------
 Onsdag
 -------------------------
@@ -64,5 +66,22 @@ Fredag
 =========================
 - Lös problemen med rutmönstret och konstrasten.
 - Börja träna på större storlekar, förmodligen på Alvis.
+
+
+=========================
+         Vecka 47
+=========================
+Måndag
+-------------------------
+- Försökt lösa problemen med rutmönster och kontrast utan framgång.
+- Till slut löst båda problemen genom att normalisera pixelintensiteten till [0,1] i stället för [0, 255].
+- Testkört på 32x32 med mycket goda resultat; rätt kontrast och inget tydligt rutnätsmönster.
+- Snyggat till och förbättrat koden litet grand.
+
+-------------------------
+Tisdag
+-------------------------
+- Börjat träna på större storlekar, 64x64, 128x128 och 256x256 för att säkerställa att modellen fungerar även vid bättre upplösning
+- Börjat läsa på mer ingående om betingning och hur vi kan applicera det på vår modell.
 
 
