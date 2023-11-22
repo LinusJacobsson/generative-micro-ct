@@ -22,8 +22,7 @@ args = parser.parse_args()
 
 data_dir = '../../segmented_drive/'
 transform = transforms.Compose([
-    transforms.Resize((args.pixel_size, args.pixel_size)),
-    transforms.ToTensor(),
+    transforms.Resize((args.pixel_size, args.pixel_size),antialias=True),
 ])
 
 dataset = TumorDataSet(data_dir, transform)
@@ -56,12 +55,15 @@ for epoch in tqdm_epoch:
     losses.append(avg_loss / num_items)
     tqdm_epoch.set_description('Average Loss: {:5f}'.format(avg_loss / num_items))
 
-    if (epoch + 1) % 100 == 0 or (epoch + 1) == n_epochs:
-        torch.save(score_model.state_dict(), 'ckpt.pth')
+
+# Saving data
+filename = f"size_{args.pixel_size}_lr_{args.learning_rate}_sigma_{args.sigma}_epochs_{args.epochs}"
+torch.save(score_model.state_dict(), filename+'.pth') # only save at the end
 
 plt.plot(range(1, n_epochs + 1), losses, label='Average loss')
 plt.xlabel('Epoch')
 plt.ylabel('Average loss')
 plt.title('Training loss over time')
+plt.yscale('log')
 plt.show()
-plt.savefig('Loss_plot.png')
+plt.savefig(filename +'.png')
