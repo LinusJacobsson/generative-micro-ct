@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Tumor Image Training Script')
+parser.add_argument('-device', type=str, default='cpu', help='Choice of device: "cpu" or "cuda"')
 parser.add_argument('-sigma', type=float, default=25.0, help='Sigma value for the score network')
 parser.add_argument('-pixel_size', type=int, default=32, help='Pixel size for image resizing')
 parser.add_argument('-epochs', type=int, default=50, help='Number of training epochs')
@@ -32,8 +33,9 @@ sigma = args.sigma
 marginal_prob_std_fn = functools.partial(marginal_prob_std, sigma=sigma)
 diffusion_coeff_fn = functools.partial(diffusion_coeff, sigma=sigma)
 
+device = args.device
 score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
-
+score_model = score_model.to(device)
 n_epochs = args.epochs
 batch_size = args.batch_size
 lr = args.learning_rate
@@ -46,6 +48,7 @@ for epoch in tqdm_epoch:
     avg_loss = 0.
     num_items = 0
     for x in dataloader:
+        x = x.to(device)
         loss = loss_fn(score_model, x, marginal_prob_std_fn)
         optimizer.zero_grad()
         loss.backward()    
