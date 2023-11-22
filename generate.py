@@ -1,5 +1,5 @@
-#SAMPLING TO GENERATE IMAGES
-
+#SAMPLING TO GENERATE IMAGE
+import argparse
 import torch
 import numpy as np
 from torchvision.utils import make_grid
@@ -7,22 +7,34 @@ from functions import ScoreNet, marginal_prob_std, ode_sampler, diffusion_coeff
 import functools
 from scipy import integrate
 
+# Set up argument parser
+parser = argparse.ArgumentParser(description='Tumor Image Generating Script')
+parser.add_argument('-device', type=str, default='cpu', help='Choice of device: "cpu" or "cuda"')
+parser.add_argument('-weight_file', type=str, default='ckpt.pth', help='Path to model weights')
+parser.add_argument('-sigma', type=float, default=25.0, help='Sigma for the PDE, same as when training')
+parser.add_argument('-batch_size', type=int, default=9, help='Number of images to be generated')
 
-device = 'cpu'
+# Parse arguments
+args = parser.parse_args()
 
-score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std))
-score_model = score_model.to(device)
+device = args.device
+model_path = args.weight_file
+ode_solver = args.ode_solver
+sigma = args.sigma
+sample_batch_size = args.batch_size
 
-## Load the pre-trained checkpoint from disk.
-ckpt = torch.load('ckpt.pth', map_location=device)
-score_model.load_state_dict(ckpt)
 
-sample_batch_size = 16
 sampler = ode_sampler
-sigma =  25.0#@param {'type':'number'}
 marginal_prob_std_fn = functools.partial(marginal_prob_std, sigma=sigma)
 diffusion_coeff_fn = functools.partial(diffusion_coeff, sigma=sigma)
 ## Generate samples using the specified sampler.
+score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
+score_model = score_model.to(device)
+
+## Load the pre-trained checkpoint from disk.
+ckpt = torch.load(model_path, map_location=device)
+score_model.load_state_dict(ckpt)
+
 samples = sampler(score_model, 
                   marginal_prob_std_fn,
                   diffusion_coeff_fn, 

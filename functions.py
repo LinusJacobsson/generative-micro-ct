@@ -22,19 +22,26 @@ class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
         self.data_dir = data_dir
         self.transform = transform
-        self.image_files = [f for f in sorted(os.listdir(data_dir))]
-    
+        # Only include files, exclude directories
+        self.image_files = [f for f in sorted(os.listdir(data_dir)) if os.path.isfile(os.path.join(data_dir, f)) and f.endswith('.tif')]
+
     def __len__(self):
         return len(self.image_files)
-    
+
     def __getitem__(self, idx):
         img_path = os.path.join(self.data_dir, self.image_files[idx])
-        image = Image.open(img_path).convert('L')
+        image = Image.open(img_path)
+        image = np.array(image)
 
+        #image_8bit = (image / (256)).astype(np.uint8)
+        image_8bit = ((image - np.min(image)) / (np.max(image) - np.min(image)) * 255).astype(np.uint8)
+        image_norm = image_8bit / 255.0
+        image_tensor = torch.tensor(image_norm, dtype=torch.float32)
         if self.transform:
-            image = self.transform(image)
+            image_tensor = self.transform(image_tensor.unsqueeze(0))
 
-        return image
+        return image_tensor
+
 
 
 import torch
@@ -220,7 +227,7 @@ def ode_sampler(score_model,
                 batch_size=9, 
                 atol=error_tolerance, 
                 rtol=error_tolerance, 
-                device='cuda', 
+                device='cpu', 
                 z=None,
                 eps=1e-3):
   """Generate samples from score-based models with black-box ODE solvers.
@@ -241,7 +248,7 @@ def ode_sampler(score_model,
   t = torch.ones(batch_size, device=device)
   # Create the latent code
   if z is None:
-    init_x = torch.randn(batch_size, 1, 28, 28, device=device) \
+    init_x = torch.randn(batch_size, 1, 32, 32, device=device) \
       * marginal_prob_std(t)[:, None, None, None]
   else:
     init_x = z
