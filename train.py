@@ -12,7 +12,7 @@ import matplotlib.pyplot as plt
 # Set up argument parser
 parser = argparse.ArgumentParser(description='Tumor Image Training Script')
 parser.add_argument('-sigma', type=float, default=25.0, help='Sigma value for the score network')
-parser.add_argument('-pixel_size', type=int, default=128, help='Pixel size for image resizing')
+parser.add_argument('-pixel_size', type=int, default=32, help='Pixel size for image resizing')
 parser.add_argument('-epochs', type=int, default=50, help='Number of training epochs')
 parser.add_argument('-learning_rate', type=float, default=1e-4, help='Learning rate')
 parser.add_argument('-batch_size', type=int, default=32, help='Batch size')
@@ -20,7 +20,7 @@ parser.add_argument('-batch_size', type=int, default=32, help='Batch size')
 # Parse arguments
 args = parser.parse_args()
 
-data_dir = 'C:/Users/David/OneDrive/Desktop/Test'
+data_dir = '../../segmented_drive/'
 transform = transforms.Compose([
     transforms.Resize((args.pixel_size, args.pixel_size)),
     transforms.ToTensor(),
@@ -63,4 +63,5 @@ plt.plot(range(1, n_epochs + 1), losses, label='Average loss')
 plt.xlabel('Epoch')
 plt.ylabel('Average loss')
 plt.title('Training loss over time')
+plt.show()
 plt.savefig('Loss_plot.png')

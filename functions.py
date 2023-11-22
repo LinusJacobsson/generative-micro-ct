@@ -12,6 +12,11 @@ import numpy as np
 import sys
 import os
 from PIL import Image
+from scipy import integrate
+
+
+device = 'cpu'
+
 
 class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
