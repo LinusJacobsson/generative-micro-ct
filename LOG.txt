@@ -84,4 +84,11 @@ Tisdag
 - Börjat träna på större storlekar, 64x64, 128x128 och 256x256 för att säkerställa att modellen fungerar även vid bättre upplösning
 - Börjat läsa på mer ingående om betingning och hur vi kan applicera det på vår modell.
 
+-------------------------
+Onsdag
+-------------------------
+- Testat olika sigma och learning rates för att förbättra modellen.
+- Gjorde koden redo för körning på Alvis.
+- Fixat så att z-koordinaten extraheras direkt från bildnamnet så att betingning på den möjliggörs framöver.
+
 
