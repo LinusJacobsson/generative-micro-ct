@@ -12,14 +12,16 @@ parser = argparse.ArgumentParser(description='Tumor Image Generating Script')
 parser.add_argument('-device', type=str, default='cpu', help='Choice of device: "cpu" or "cuda"')
 parser.add_argument('-weight_file', type=str, default='ckpt.pth', help='Path to model weights')
 parser.add_argument('-sigma', type=float, default=25.0, help='Sigma for the PDE, same as when training')
-parser.add_argument('-batch_size', type=int, default=9, help='Number of images to be generated')
-
+parser.add_argument('-sample_batch_size', type=int, default=9, help='Number of images to be generated')
+parser.add_argument('-pixel_size', type=int, default=32, help='Pixel size for image resizing')
+parser.add_argument('-epochs', type=int, default=50, help='Number of training epochs')
+parser.add_argument('-learning_rate', type=float, default=1e-4, help='Learning rate')
+parser.add_argument('-batch_size', type=int, default=32, help='Batch size')
 # Parse arguments
 args = parser.parse_args()
 
 device = args.device
 model_path = args.weight_file
-ode_solver = args.ode_solver
 sigma = args.sigma
 sample_batch_size = args.batch_size
 
@@ -45,8 +47,9 @@ samples = samples.clamp(0.0, 1.0)
 # %matplotlib inline
 import matplotlib.pyplot as plt
 sample_grid = make_grid(samples, nrow=int(np.sqrt(sample_batch_size)))
-
+filename = f"size_{args.pixel_size}_lr_{args.learning_rate}_sigma_{args.sigma}_epochs_{args.epochs}_generated"
 plt.figure(figsize=(6,6))
 plt.axis('off')
 plt.imshow(sample_grid.permute(1, 2, 0).cpu(), vmin=0., vmax=1.)
+plt.savefig(filename+'.png')
 plt.show()
