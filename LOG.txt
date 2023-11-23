@@ -91,4 +91,10 @@ Onsdag
 - Gjorde koden redo för körning på Alvis.
 - Fixat så att z-koordinaten extraheras direkt från bildnamnet så att betingning på den möjliggörs framöver.
 
+-------------------------
+Torsdag
+-------------------------
+- Börjat implementera betingningen genom närliggande lager
+- Gjorde implementatinen av U-net mer komplex för att förbättra de obetingade resultaten vid högre upplösning.
+
 
