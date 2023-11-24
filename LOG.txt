@@ -97,4 +97,16 @@ Torsdag
 - Börjat implementera betingningen genom närliggande lager
 - Gjorde implementatinen av U-net mer komplex för att förbättra de obetingade resultaten vid högre upplösning.
 
+-------------------------
+Fredag
+-------------------------
+- Fått en okej fungerande betingning, fortsätter jobba med implementationen.
+- Testkört en större version av U-net.
+
+=========================
+   Plan för vecka 47
+=========================
+- Börja köra båda versioner av modellen på Alvis.
+- Börja skriva på rapporten.
+- Fortsätta att jobba med betingningen.
 
