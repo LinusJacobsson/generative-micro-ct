@@ -24,6 +24,174 @@ import matplotlib
 matplotlib.use('Agg')  # Set the backend before importing pyplot
 import matplotlib.pyplot as plt
 
+
+## PARAMETERS
+
+device = 'cpu' #@param ['cuda', 'cpu'] {'type':'string'}
+sigma =  5.0#@param {'type':'number'}
+n_epochs =   1000#@param {'type':'integer'}
+batch_size =  32 #@param {'type':'integer'}
+lr=1e-3 #@param {'type':'number'}
+error_tolerance = 1e-5 #@param {'type': 'number'}
+
+
+## LOADING DATA
+
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(script_dir, '32x32_boxes')
+
+transform = transforms.Compose([
+    transforms.Resize((32, 32))
+])
+
+
+## TRAINING
+
+marginal_prob_std_fn = functools.partial(marginal_prob_std, sigma=sigma)
+
+dataset = TumorDataSet(data_dir, transform)
+num_images = len(dataset)
+
+for i in range(num_images):
+
+  image = dataset[i]
+
+  image_list, z_coord = image
+  prev_image = image_list[0]
+  current_image = image_list[1]
+  next_image = image_list[2]
+  current_image_np = current_image.squeeze().numpy()
+  prev_image_np = prev_image.squeeze().numpy()
+  next_image_np = next_image.squeeze().numpy()
+
+
+dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
+subset_dataloader = DataLoader(subset_dataset, batch_size=32, shuffle=True)
+
+
+score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
+score_model = score_model.to(device)
+
+
+optimizer = Adam(score_model.parameters(), lr=lr)
+tqdm_epoch = tqdm.trange(n_epochs)
+losses = []
+
+for epoch in tqdm_epoch:
+  avg_loss = 0
+  num_items = 0
+  for x, z_coord in subset_dataloader:
+  #for x, z_coord in dataloader:
+    x = x.to(device)
+    loss = loss_fn(score_model, x, marginal_prob_std_fn)
+    optimizer.zero_grad()
+    loss.backward()
+    optimizer.step()
+    avg_loss += loss.item() * x.shape[0]
+    num_items += x.shape[0]
+  # Print the averaged training loss so far.
+  losses.append(avg_loss / num_items)
+  tqdm_epoch.set_description('Average Loss: {:5f}'.format(avg_loss / num_items))
+  # Update the checkpoint after each epoch of training.
+  if (epoch + 1) % 100 == 0 or (epoch + 1) == n_epochs:
+        torch.save(score_model.state_dict(), 'ckpt.pth')
+
+filename = "Test"
+
+plt.plot(range(1, n_epochs + 1), losses, label='Average loss')
+plt.xlabel('Epoch')
+plt.ylabel('Average loss')
+plt.title('Training loss over time')
+plt.yscale('log')
+plt.savefig(filename +'.png')
+
+save_path = '/content/drive/My Drive/Gen_ct/Weights/10000_test_4.pth'
+
+# Save the model's state dictionary to the specified path
+torch.save(score_model.state_dict(), save_path)
+
+
+## GENERATING
+
+load_path = '/content/drive/My Drive/Gen_ct/Weights/10000_test_3.pth'
+
+# Load the weights into the model
+score_model.load_state_dict(torch.load(load_path, map_location=device))
+
+# Ensure the model is in evaluation mode (not training mode)
+score_model.eval()
+
+z_index_test =0
+
+diffusion_coeff_fn = functools.partial(diffusion_coeff, sigma=sigma)
+
+
+# ## Load the pre-trained checkpoint from disk.
+# device = 'cuda' #@param ['cuda', 'cpu'] {'type':'string'}
+# ckpt = torch.load('ckpt.pth', map_location=device)
+# score_model.load_state_dict(ckpt)
+
+sample_batch_size = 4 #@param {'type':'integer'}
+sampler = ode_sampler #@param ['Euler_Maruyama_sampler', 'pc_sampler', 'ode_sampler'] {'type': 'raw'}
+
+## Generate samples using the specified sampler.
+samples = sampler(score_model,
+                  marginal_prob_std_fn,
+                  diffusion_coeff_fn,
+                  subset_dataset,
+                  z_index_test,
+                  sample_batch_size,
+                  device=device)
+
+# ##Sample visualization.
+samples = samples.clamp(0.0, 1.0)
+sample_grid = make_grid(samples, nrow=int(np.sqrt(sample_batch_size)))
+
+plt.figure(figsize=(6,6))
+plt.axis('off')
+plt.imshow(sample_grid.permute(1, 2, 0).cpu(), vmin=0., vmax=1., cmap='gray')
+#plt.imshow(sample_grid.permute(1, 2, 0).cpu(), cmap='gray')
+
+image_list, z_coord = subset_dataset[z_index_test]
+prev_image = image_list[0]git 
+current_image = image_list[1]
+next_image = image_list[2]
+
+prev_image_np = prev_image.cpu().numpy()
+current_image_np = current_image.cpu().numpy()
+next_image_np = next_image.cpu().numpy()
+
+# Plotting
+plt.figure(figsize=(8, 4))
+
+# Plotting the first image
+plt.subplot(1, 3, 1)
+plt.imshow(prev_image_np, cmap='gray')  # Assuming images are grayscale
+plt.title('Previous Image')
+plt.axis('off')
+
+# Plotting the second image
+plt.subplot(1, 3, 2)
+plt.imshow(current_image_np, cmap='gray')  # Assuming images are grayscale
+plt.title('Current Image')
+plt.axis('off')
+
+# Plotting the third image
+plt.subplot(1, 3, 3)
+plt.imshow(next_image_np, cmap='gray')  # Assuming images are grayscale
+plt.title('Next Image')
+plt.axis('off')
+
+
+## SSIM
+
+print(f"SSIM of Previous image and generated: {mean_ssim(prev_image_np, samples)}")
+print(f"SSIM of Current image and generated: {mean_ssim(current_image_np, samples)}")
+print(f"SSIM of Next image and generated: {mean_ssim(next_image_np, samples)}")
+
+
+## FUNCTIONS
+
 class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
         self.data_dir = data_dir
@@ -91,13 +259,6 @@ class TumorDataSet(Dataset):
 
           return image_tensor
 
-
-script_dir = os.path.dirname(os.path.abspath(__file__))
-data_dir = os.path.join(script_dir, '32x32_boxes')
-
-transform = transforms.Compose([
-    transforms.Resize((32, 32))
-])
 
 class GaussianFourierProjection(nn.Module):
   """Gaussian random features for encoding time steps."""
@@ -210,8 +371,7 @@ class ScoreNet(nn.Module):
 
       h = h / self.marginal_prob_std(t)[:, None, None, None]
       return h
-  
-device = 'cpu' #@param ['cuda', 'cpu'] {'type':'string'}
+
 
 def marginal_prob_std(t, sigma):
   """Compute the mean and standard deviation of $p_{0t}(x(t) | x(0))$.
@@ -226,6 +386,7 @@ def marginal_prob_std(t, sigma):
   t = torch.tensor(t, device=device)
   return torch.sqrt((sigma**(2 * t) - 1.) / 2. / np.log(sigma))
 
+
 def diffusion_coeff(t, sigma):
   """Compute the diffusion coefficient of our SDE.
 
@@ -238,9 +399,6 @@ def diffusion_coeff(t, sigma):
   """
   return torch.tensor(sigma**t, device=device)
 
-sigma =  5.0#@param {'type':'number'}
-marginal_prob_std_fn = functools.partial(marginal_prob_std, sigma=sigma)
-diffusion_coeff_fn = functools.partial(diffusion_coeff, sigma=sigma)
 
 def loss_fn(model, x, marginal_prob_std, eps=1e-5):
   """The loss function for training score-based generative models.
@@ -263,91 +421,6 @@ def loss_fn(model, x, marginal_prob_std, eps=1e-5):
   return loss
 
 
-num_images = 20
-#subset_indices = list(range(num_images))
-subset_indices = list(range(116,136))
-
-dataset = TumorDataSet(data_dir, transform)
-subset_dataset = Subset(dataset, subset_indices)
-
-for i in range(num_images):
-
-  image = subset_dataset[i]
-  #image = dataset[i]
-
-  image_list, z_coord = image
-  prev_image = image_list[0]
-  current_image = image_list[1]
-  next_image = image_list[2]
-  current_image_np = current_image.squeeze().numpy()
-  prev_image_np = prev_image.squeeze().numpy()
-  next_image_np = next_image.squeeze().numpy()
-
-
-dataloader = DataLoader(dataset, batch_size=32, shuffle=True)
-subset_dataloader = DataLoader(subset_dataset, batch_size=32, shuffle=True)
-
-
-score_model = torch.nn.DataParallel(ScoreNet(marginal_prob_std=marginal_prob_std_fn))
-score_model = score_model.to(device)
-
-n_epochs =   1000#@param {'type':'integer'}
-## size of a mini-batch
-batch_size =  32 #@param {'type':'integer'}
-## learning rate
-lr=1e-3 #@param {'type':'number'}
-
-
-optimizer = Adam(score_model.parameters(), lr=lr)
-tqdm_epoch = tqdm.trange(n_epochs)
-losses = []
-
-for epoch in tqdm_epoch:
-  avg_loss = 0
-  num_items = 0
-  for x, z_coord in subset_dataloader:
-  #for x, z_coord in dataloader:
-    x = x.to(device)
-    loss = loss_fn(score_model, x, marginal_prob_std_fn)
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-    avg_loss += loss.item() * x.shape[0]
-    num_items += x.shape[0]
-  # Print the averaged training loss so far.
-  losses.append(avg_loss / num_items)
-  tqdm_epoch.set_description('Average Loss: {:5f}'.format(avg_loss / num_items))
-  # Update the checkpoint after each epoch of training.
-  if (epoch + 1) % 100 == 0 or (epoch + 1) == n_epochs:
-        torch.save(score_model.state_dict(), 'ckpt.pth')
-
-
-filename = "Test"
-
-plt.plot(range(1, n_epochs + 1), losses, label='Average loss')
-plt.xlabel('Epoch')
-plt.ylabel('Average loss')
-plt.title('Training loss over time')
-plt.yscale('log')
-plt.show()
-plt.savefig(filename +'.png')
-
-save_path = '/content/drive/My Drive/Gen_ct/Weights/10000_test_4.pth'
-
-# Save the model's state dictionary to the specified path
-torch.save(score_model.state_dict(), save_path)
-
-load_path = '/content/drive/My Drive/Gen_ct/Weights/10000_test_3.pth'
-
-# Load the weights into the model
-score_model.load_state_dict(torch.load(load_path, map_location=device))
-
-# Ensure the model is in evaluation mode (not training mode)
-score_model.eval();
-
-
-## The error tolerance for the black-box ODE solver
-error_tolerance = 1e-5 #@param {'type': 'number'}
 def ode_sampler(score_model,
                 marginal_prob_std,
                 diffusion_coeff,
@@ -416,66 +489,6 @@ def ode_sampler(score_model,
   return x[:,1:2,:,:]
 
 
-z_index_test =0
-
-
-# ## Load the pre-trained checkpoint from disk.
-# device = 'cuda' #@param ['cuda', 'cpu'] {'type':'string'}
-# ckpt = torch.load('ckpt.pth', map_location=device)
-# score_model.load_state_dict(ckpt)
-
-sample_batch_size = 4 #@param {'type':'integer'}
-sampler = ode_sampler #@param ['Euler_Maruyama_sampler', 'pc_sampler', 'ode_sampler'] {'type': 'raw'}
-
-## Generate samples using the specified sampler.
-samples = sampler(score_model,
-                  marginal_prob_std_fn,
-                  diffusion_coeff_fn,
-                  subset_dataset,
-                  z_index_test,
-                  sample_batch_size,
-                  device=device)
-
-# ##Sample visualization.
-samples = samples.clamp(0.0, 1.0)
-sample_grid = make_grid(samples, nrow=int(np.sqrt(sample_batch_size)))
-
-plt.figure(figsize=(6,6))
-plt.axis('off')
-plt.imshow(sample_grid.permute(1, 2, 0).cpu(), vmin=0., vmax=1., cmap='gray')
-#plt.imshow(sample_grid.permute(1, 2, 0).cpu(), cmap='gray')
-
-image_list, z_coord = subset_dataset[z_index_test]
-prev_image = image_list[0]git 
-current_image = image_list[1]
-next_image = image_list[2]
-
-prev_image_np = prev_image.cpu().numpy()
-current_image_np = current_image.cpu().numpy()
-next_image_np = next_image.cpu().numpy()
-
-# Plotting
-plt.figure(figsize=(8, 4))
-
-# Plotting the first image
-plt.subplot(1, 3, 1)
-plt.imshow(prev_image_np, cmap='gray')  # Assuming images are grayscale
-plt.title('Previous Image')
-plt.axis('off')
-
-# Plotting the second image
-plt.subplot(1, 3, 2)
-plt.imshow(current_image_np, cmap='gray')  # Assuming images are grayscale
-plt.title('Current Image')
-plt.axis('off')
-
-# Plotting the third image
-plt.subplot(1, 3, 3)
-plt.imshow(next_image_np, cmap='gray')  # Assuming images are grayscale
-plt.title('Next Image')
-plt.axis('off')
-
-
 def calculate_ssim(image_1, image_2):
     # Convert PyTorch tensor to NumPy array if necessary
     if isinstance(image_2, torch.Tensor):
@@ -490,6 +503,7 @@ def calculate_ssim(image_1, image_2):
 
     return ssim
 
+
 def mean_ssim(image, samples): 
   ssim = 0
 
@@ -498,8 +512,3 @@ def mean_ssim(image, samples):
 
   ssim = ssim/len(samples)
   return ssim
-
-
-print(f"SSIM of Previous image and generated: {mean_ssim(prev_image_np, samples)}")
-print(f"SSIM of Current image and generated: {mean_ssim(current_image_np, samples)}")
-print(f"SSIM of Next image and generated: {mean_ssim(next_image_np, samples)}")
