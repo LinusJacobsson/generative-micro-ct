@@ -92,7 +92,9 @@ class TumorDataSet(Dataset):
           return image_tensor
 
 
-data_dir = '/content/drive/My Drive/Gen_ct/32x32_boxes/'
+script_dir = os.path.dirname(os.path.abspath(__file__))
+data_dir = os.path.join(script_dir, '32x32_boxes')
+
 transform = transforms.Compose([
     transforms.Resize((32, 32))
 ])
@@ -436,8 +438,6 @@ samples = sampler(score_model,
 
 # ##Sample visualization.
 samples = samples.clamp(0.0, 1.0)
-import matplotlib.pyplot as plt
-print(samples.shape)
 sample_grid = make_grid(samples, nrow=int(np.sqrt(sample_batch_size)))
 
 plt.figure(figsize=(6,6))
@@ -446,7 +446,7 @@ plt.imshow(sample_grid.permute(1, 2, 0).cpu(), vmin=0., vmax=1., cmap='gray')
 #plt.imshow(sample_grid.permute(1, 2, 0).cpu(), cmap='gray')
 
 image_list, z_coord = subset_dataset[z_index_test]
-prev_image = image_list[0]
+prev_image = image_list[0]git 
 current_image = image_list[1]
 next_image = image_list[2]
 
