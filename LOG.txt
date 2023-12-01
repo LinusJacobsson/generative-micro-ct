@@ -104,9 +104,25 @@ Fredag
 - Testkört en större version av U-net.
 
 =========================
-   Plan för vecka 47
+   Plan för vecka 48
 =========================
 - Börja köra båda versioner av modellen på Alvis.
 - Börja skriva på rapporten.
 - Fortsätta att jobba med betingningen.
+
+=========================
+         Vecka 48
+=========================
+- Blev lite mindre tid på projektet pga obligatoriska föreläsningar.
+- Gjorde klart implementeringen med betingning.
+- Utforskade DDPM för det obetingande fallet, med stor framgång.
+- Började träna på Alvis.
+- Börjat skriva inledning på rapporten.
+
+=========================
+   Plan för Vecka 49
+=========================
+- Skriv klart inledning på rapporten.
+- Utforska DDPM för det betingade fallet.
+- Se över implementation av SDE.
 
