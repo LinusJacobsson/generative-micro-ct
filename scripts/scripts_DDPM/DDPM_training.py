@@ -14,13 +14,12 @@ from accelerate import Accelerator, notebook_launcher
 from tqdm.auto import tqdm
 import glob
 from pathlib import Path
-import re
 
 @dataclass
 class TrainingConfig:
     image_size = 32
     train_batch_size = 16
-    num_epochs = 10
+    num_epochs = 100
     gradient_accumulation_steps = 1
     learning_rate = 1e-4
     lr_warmup_steps = 500
@@ -37,21 +36,6 @@ config = TrainingConfig()
 image_slices = [file for file in os.listdir() if file.endswith('.tif')]
 image_slices.sort()
 data_dir = '32x32_boxes/'
-
-def extract_z_coordinate(self, file_name):
-        # Define a regular expression pattern to match the z-coordinate
-        pattern = re.compile(r'\d+\.tif$')
-
-        # Use the regular expression to find the match in the file name
-        match = pattern.search(file_name)
-
-        # Extract the matched part
-        if match:
-            return int(match.group(0).replace('.tif', ''))
-        else:
-            # Handle the case when the z-coordinate is not found
-            print(f"Warning: Z-coordinate not found in filename {filename}")
-            return None  # You can modify this to handle missing z-coordinate appropriately
 
 class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
@@ -94,10 +78,7 @@ class TumorDataSet(Dataset):
                     idx = (idx + 1) % len(self.image_files)
                     continue
 
-                # Extract z-coordinate from the filename or any other source
-                z_coord = extract_z_coordinate(self.image_files[idx], img_path)
-
-                return image_tensor, z_coord
+                return image_tensor
             except Exception as e:
                 print(f"Error processing image {img_path}: {e}")
                 idx = (idx + 1) % len(self.image_files)  # Move to the next image
@@ -116,7 +97,7 @@ train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_
 
 model = UNet2DModel(
     sample_size=config.image_size,
-    in_channels=2,
+    in_channels=1,
     out_channels=1,
     layers_per_block=2,
     block_out_channels=(128, 128, 256, 256, 512, 512),
@@ -138,14 +119,10 @@ model = UNet2DModel(
     ),
 )
 
-sample_image, _ = dataset[0]
-sample_image = sample_image.unsqueeze(0)
+sample_image = dataset[0].unsqueeze(0)
 
 noise_scheduler = DDPMScheduler(num_train_timesteps=1000)
-noise1 = torch.randn(sample_image.shape)
-noise2 = torch.randn(sample_image.shape)
-noise = torch.cat([noise1, noise2], dim=1)
-
+noise = torch.randn(sample_image.shape)
 timesteps = torch.LongTensor([50])
 noisy_image = noise_scheduler.add_noise(sample_image, noise, timesteps)
 
@@ -183,21 +160,13 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
     progress_bar = tqdm(total=total_training_steps, disable=not accelerator.is_local_main_process)
 
     for epoch in range(config.num_epochs):
-        for step, (clean_images, z_coords) in enumerate(train_dataloader):
+        for step, clean_images in enumerate(train_dataloader):
             noise = torch.randn(clean_images.shape).to(clean_images.device)
             bs = clean_images.shape[0]
             timesteps = torch.randint(
                 0, noise_scheduler.config.num_train_timesteps, (bs,), device=clean_images.device
             ).long()
             noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
-
-            # Pass z-coordinate information to the model
-            z_coords_tensor = torch.tensor(z_coords, device=clean_images.device, dtype=torch.float32).view(-1, 1, 1, 1)
-            z_coords_tensor = z_coords_tensor.expand(-1, 1, config.image_size, config.image_size)
-
-            noisy_z_coords = noise_scheduler.add_noise(clean_images, noise, timesteps) 
-
-            noisy_images = torch.cat([noisy_images, noisy_z_coords], dim=1)
 
             with accelerator.accumulate(model):
                 noise_pred = model(noisy_images, timesteps, return_dict=False)[0]
@@ -226,3 +195,4 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 args = (config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
 
 notebook_launcher(train_loop, args, num_processes=1)
+#sample_images = sorted(glob.glob(f"{config.output_dir}/samples/*.png"))
