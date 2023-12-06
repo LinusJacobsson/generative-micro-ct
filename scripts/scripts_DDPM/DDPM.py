@@ -102,6 +102,7 @@ print(len(dataset))
 
 image = dataset[0]
 image_np = image.squeeze().numpy()
+
 # Plot the image
 #plt.imshow(image_np, cmap='gray')  # 'cmap=gray' is used for proper grayscale display
 #plt.title('Resized Image')

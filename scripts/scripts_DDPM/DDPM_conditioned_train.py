@@ -20,12 +20,12 @@ import re
 class TrainingConfig:
     image_size = 32
     train_batch_size = 16
-    num_epochs = 20
+    num_epochs = 1000
     gradient_accumulation_steps = 1
     learning_rate = 1e-4
     lr_warmup_steps = 500
-    save_image_epochs = 50
-    save_model_epochs = 50
+    save_image_epochs = 1000
+    save_model_epochs = 1000
     mixed_precision = "fp16"
     output_dir = "DDPM_results/"
     overwrite_output_dir = False
