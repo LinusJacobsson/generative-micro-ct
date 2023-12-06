@@ -37,7 +37,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Assuming the files are in the current working directory
 image_slices = [file for file in os.listdir() if file.endswith('.tif')]
 image_slices.sort()
-data_dir = 'test/'
+data_dir = 'test_data/'
 
 def extract_z_coordinate(file_name):
     # Adjust this regular expression to correctly capture your specific z-coordinate format
@@ -113,27 +113,7 @@ model = UNet2DModel(
     ),
 )
 model = model.to(device) # move to GPU
-
-sample_image, _ = dataset[0]
-sample_image = sample_image.unsqueeze(0)
-
 noise_scheduler = DDPMScheduler(num_train_timesteps=1000)
-noise1 = torch.randn(sample_image.shape)
-noise2 = torch.randn(sample_image.shape)
-
-combined_noise = torch.cat([noise1, noise2], dim=1)
-
-
-timesteps = torch.LongTensor([50])
-noisy_image = noise_scheduler.add_noise(sample_image, combined_noise, timesteps)
-
-noisy_image_float = noisy_image.type(torch.float32)
-if len(noisy_image_float.shape) == 3:
-    noisy_image_float = noisy_image_float.unsqueeze(0)
-
-noise_pred = model(noisy_image_float, timesteps).sample
-loss = F.mse_loss(noise_pred, combined_noise.type(torch.float32))
-
 optimizer = torch.optim.AdamW(model.parameters(), lr=config.learning_rate)
 lr_scheduler = get_cosine_schedule_with_warmup(
     optimizer=optimizer,
@@ -162,24 +142,27 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
     for epoch in range(config.num_epochs):
         for step, (clean_images, z_coords) in enumerate(train_dataloader):
-            noise = torch.randn(clean_images.shape).to(clean_images.device)
-            bs = clean_images.shape[0]
-            timesteps = torch.randint(
-                0, noise_scheduler.config.num_train_timesteps, (bs,), device=clean_images.device
-            ).long()
+            clean_images = clean_images.to(device)
+            noise = torch.randn_like(clean_images, device=device)  # Move to device
 
-            # Pass z-coordinate information to the model
-            z_coords_tensor = torch.tensor(z_coords, device=clean_images.device, dtype=torch.float32).view(-1, 1, 1, 1)
-            z_coords_tensor = z_coords_tensor.expand(-1, 1, config.image_size, config.image_size)
-            z_coords_tensor = z_coords_tensor.to(device)
+            timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (clean_images.size(0),), device=device).long()
+            noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
+            # Debugging: Print the shapes of tensors
+            #print(f"Shape of clean_images: {clean_images.shape}")
+            #print(f"Shape of noise1: {noise.shape}")
+            #print(f"Shape of noisy_images: {noisy_images.shape}")
+            z_coords_tensor = torch.tensor(z_coords, dtype=torch.float).view(-1, 1, 1, 1).to(device)
+            z_coords_tensor = (z_coords_tensor / (len(dataset) - 1) * 2 - 1).to(device)
+            z_coords_tensor = z_coords_tensor.expand(-1, -1, noisy_images.size(2), noisy_images.size(3))
+            #print(f"Shape of z_coords_tensor before expansion: {z_coords_tensor.shape}")
 
-            noisy_z_coords = noise_scheduler.add_noise(clean_images, noise, timesteps) 
-            noisy_images = noise_scheduler.add_noise(clean_images, combined_noise, timesteps)
+            #print(f"Shape of z_coords_tensor after expansion: {z_coords_tensor.shape}")
+
+            noisy_images_with_z = torch.cat([noisy_images, z_coords_tensor], dim=1)
 
             with accelerator.accumulate(model):
-                noise_pred = model(noisy_images, timesteps, return_dict=False)[0]
-                # Inside the training loop
-                loss = F.mse_loss(noise_pred, combined_noise.type(torch.float32))
+                noise_pred = model(noisy_images_with_z, timesteps, return_dict=False)[0]
+                loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
 
                 accelerator.clip_grad_norm_(model.parameters(), 1.0)
@@ -187,7 +170,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
-            global_step += 1
+                global_step += 1
 
         if accelerator.is_main_process:
             pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
