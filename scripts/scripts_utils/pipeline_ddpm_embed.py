@@ -16,12 +16,10 @@
 from typing import List, Optional, Tuple, Union
 
 import torch
+from diffusers.utils.torch_utils import randn_tensor
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 
-from ...utils.torch_utils import randn_tensor
-from ..pipeline_utils import DiffusionPipeline, ImagePipelineOutput
-
-
-class DDPMPipeline(DiffusionPipeline):
+class EmbeddedDDPMPipeline(DiffusionPipeline):
     r"""
     Pipeline for image generation.
 
@@ -118,7 +116,7 @@ class DDPMPipeline(DiffusionPipeline):
                 image_with_z = torch.cat([image, z_expanded], dim=1)
             else:
                 image_with_z = image
-                
+
             # 1. predict noise model_output
             model_output = self.unet(image, t).sample
 

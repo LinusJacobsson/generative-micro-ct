@@ -1,0 +1,9 @@
+This job can be monitored from: https://scruffy.c3se.chalmers.se/d/alvis-job/alvis-job?var-jobid=1637062&from=1701956455000
+/tmp/slurmd/job1637062/slurm_script: line 10: DDPM/bin/activate: No such file or directory
+Starting job
+Traceback (most recent call last):
+  File "/cephyr/users/linusjac/Alvis/generative-micro-ct/scripts/scripts_DDPM/DDPM_embed_gen.py", line 4, in <module>
+    import torch
+ModuleNotFoundError: No module named 'torch'
+/tmp/slurmd/job1637062/slurm_script: line 18: deactivate: command not found
+Job has ended

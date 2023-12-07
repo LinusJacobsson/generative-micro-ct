@@ -6,6 +6,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from diffusers import DDPMScheduler, DDPMPipeline, UNet2DModel
 import numpy as np
+from pipeline_ddpm_embed import EmbeddedDDPMPipeline
 
 class GenerationConfig:
     image_size = 32
