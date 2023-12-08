@@ -8,6 +8,7 @@ import torchvision.transforms as transforms
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 from diffusers import UNet2DModel, DDPMScheduler, DDPMPipeline
+from pipeline_ddpm_conditioned import DDPMPipelineConditioned
 from dataclasses import dataclass
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from accelerate import Accelerator, notebook_launcher
@@ -18,16 +19,15 @@ import re
 
 @dataclass
 class TrainingConfig:
-    image_size = 32
-    train_batch_size = 16
-    num_epochs = 1000
+    image_size = 512
+    train_batch_size = 1
+    num_epochs = 200
     gradient_accumulation_steps = 1
     learning_rate = 1e-4
     lr_warmup_steps = 500
-    save_image_epochs = 1000
-    save_model_epochs = 1000
+    save_model_epochs = 100
     mixed_precision = "fp16"
-    output_dir = "DDPM_results/"
+    output_dir = "DDPM_results_z2/"
     overwrite_output_dir = False
     seed = 0
 
@@ -37,18 +37,8 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Assuming the files are in the current working directory
 image_slices = [file for file in os.listdir() if file.endswith('.tif')]
 image_slices.sort()
-data_dir = 'test_data/'
-
-def extract_z_coordinate(file_name):
-    # Adjust this regular expression to correctly capture your specific z-coordinate format
-    pattern = re.compile(r'(\d+)(?=\.\w+$)')  # Example pattern to capture digits before file extension
-
-    match = pattern.search(file_name)
-    if match:
-        return int(match.group(1))
-    else:
-        print(f"Warning: Z-coordinate not found in filename {file_name}")
-        return 0  # Return a default value or handle this case as needed
+#data_dir = '32x32_boxes/'
+data_dir = 'Test2/'
 
 class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
@@ -62,7 +52,7 @@ class TumorDataSet(Dataset):
     def __getitem__(self, idx):
         img_path = os.path.join(self.data_dir, self.image_files[idx])
         try:
-            image = Image.open(img_path).convert('L')  # Convert to grayscale
+            image = Image.open(img_path)
             image = np.array(image, dtype=np.float32)
             image = image / 65535.0  # Normalize the image
             image_tensor = torch.tensor(image).unsqueeze(0)
@@ -147,16 +137,9 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
             timesteps = torch.randint(0, noise_scheduler.config.num_train_timesteps, (clean_images.size(0),), device=device).long()
             noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
-            # Debugging: Print the shapes of tensors
-            #print(f"Shape of clean_images: {clean_images.shape}")
-            #print(f"Shape of noise1: {noise.shape}")
-            #print(f"Shape of noisy_images: {noisy_images.shape}")
-            z_coords_tensor = torch.tensor(z_coords, dtype=torch.float).view(-1, 1, 1, 1).to(device)
-            z_coords_tensor = (z_coords_tensor / (len(dataset) - 1) * 2 - 1).to(device)
-            z_coords_tensor = z_coords_tensor.expand(-1, -1, noisy_images.size(2), noisy_images.size(3))
-            #print(f"Shape of z_coords_tensor before expansion: {z_coords_tensor.shape}")
 
-            #print(f"Shape of z_coords_tensor after expansion: {z_coords_tensor.shape}")
+            z_coords_tensor = torch.tensor(z_coords, dtype=torch.float).view(-1, 1, 1, 1).to(device)
+            z_coords_tensor = z_coords_tensor.expand(-1, -1, config.image_size, config.image_size)
 
             noisy_images_with_z = torch.cat([noisy_images, z_coords_tensor], dim=1)
 
@@ -172,9 +155,6 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 
                 global_step += 1
 
-        if accelerator.is_main_process:
-            pipeline = DDPMPipeline(unet=accelerator.unwrap_model(model), scheduler=noise_scheduler)
-
             if (epoch + 1) % config.save_model_epochs == 0 or epoch == config.num_epochs - 1:
                 model_save_path = os.path.join(config.output_dir, f"model_epoch_{epoch + 1}.pt")
                 torch.save(model.state_dict(), model_save_path)
@@ -187,3 +167,5 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
 args = (config, model, noise_scheduler, optimizer, train_dataloader, lr_scheduler)
 
 notebook_launcher(train_loop, args, num_processes=1)
+
+print("Training completed")

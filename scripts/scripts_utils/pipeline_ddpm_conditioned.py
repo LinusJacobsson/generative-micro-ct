@@ -17,8 +17,8 @@ from typing import List, Optional, Tuple, Union
 
 import torch
 
-from ...utils.torch_utils import randn_tensor
-from ..pipeline_utils import DiffusionPipeline, ImagePipelineOutput
+from diffusers.utils.torch_utils import randn_tensor
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 
 
 class DDPMPipelineConditioned(DiffusionPipeline):
@@ -34,13 +34,17 @@ class DDPMPipelineConditioned(DiffusionPipeline):
         scheduler ([`SchedulerMixin`]):
             A scheduler to be used in combination with `unet` to denoise the encoded image. Can be one of
             [`DDPMScheduler`], or [`DDIMScheduler`].
+        z_coord (`torch.Tensor`, *optional*):
+            The z-coordinate to condition the image generation on. This should be a tensor with shape
+            (batch_size, 1, height, width), where height and width match the dimensions of the generated images.
     """
 
     model_cpu_offload_seq = "unet"
 
-    def __init__(self, unet, scheduler):
+    def __init__(self, unet, scheduler, z_coord=None):
         super().__init__()
         self.register_modules(unet=unet, scheduler=scheduler)
+        self.z_coord = z_coord  # Store z_coord as an instance variable
 
     @torch.no_grad()
     def __call__(
@@ -50,34 +54,12 @@ class DDPMPipelineConditioned(DiffusionPipeline):
         num_inference_steps: int = 1000,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
-        z_coord: Optional[torch.Tensor] = None,  # Add a new parameter for the provided z-coordinate
     ) -> Union[ImagePipelineOutput, Tuple]:
         r"""
         The call function to the pipeline for generation.
 
         Args:
             # ... (existing parameters)
-            z_coord (`torch.Tensor`, *optional*):
-                The z-coordinate to condition the image generation on. This should be a tensor with shape
-                (batch_size, 1, height, width), where height and width match the dimensions of the generated images.
-
-        Example:
-
-        ```py
-        >>> from diffusers import DDPMPipelineConditioned
-
-        >>> # load model and scheduler
-        >>> pipe = DDPMPipelineConditioned.from_pretrained("google/ddpm-cat-256")
-
-        >>> # create a tensor with z-coordinates
-        >>> z_coord = torch.randn((batch_size, 1, height, width))
-
-        >>> # run pipeline in inference (sample random noise and denoise, conditioned on z-coordinate)
-        >>> image = pipe(z_coord=z_coord).images[0]
-
-        >>> # save image
-        >>> image.save("ddpm_generated_image.png")
-        ```
 
         Returns:
             # ... (existing return values)
@@ -101,8 +83,8 @@ class DDPMPipelineConditioned(DiffusionPipeline):
             image = randn_tensor(image_shape, generator=generator, device=self.device)
 
         # Use the provided z-coordinate as the second channel
-        if z_coord is not None:
-            image[:, 1, :, :] = z_coord.to(self.device).expand_as(image[:, 1, :, :])
+        if self.z_coord is not None:
+            image[:, 1:2, :, :] = self.z_coord.to(self.device).expand_as(image[:, 1:2, :, :])
 
         # set step values
         self.scheduler.set_timesteps(num_inference_steps)
