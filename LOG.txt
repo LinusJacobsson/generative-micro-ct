@@ -126,3 +126,17 @@ Fredag
 - Utforska DDPM för det betingade fallet.
 - Se över implementation av SDE.
 
+=========================
+         Vecka 49
+=========================
+- Blev inte klar med inledning pga byte av metod.
+- Jobbade med betingad DDPM och fick lovande resultat.
+- Skrev klart rapportskelettet samt hade övningspresentation.
+
+=========================
+   Plan för Vecka 50
+=========================
+- Bli klar med den betingande delen av DDPM
+- Skriv klart inledningen, dvs datan och teorin.
+- Skriv kod för att presentera reultat och börja skriva den delen. 
+
