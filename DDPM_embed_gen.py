@@ -80,17 +80,5 @@ generated_image = pipeline(
     z_indices=z_indices  # Pass only z_indices for conditional generation
 ).images[0]
 
-# Check the shape of the generated image
-print("Generated image shape:", generated_image.shape)
 
-# Assuming the generated image is grayscale, take the first channel
-# Adjust this part if working with RGB images
-if generated_image.shape[-1] != 1:
-    generated_image = generated_image[..., 0]
-
-# Check the shape after modification
-print("Modified image shape:", generated_image.shape)
-
-# Convert to PIL image
-generated_image_pil = transforms.functional.to_pil_image(generated_image)
-generated_image_pil.save("generated_sample.png")
+generated_image.save("generated_sample.png")

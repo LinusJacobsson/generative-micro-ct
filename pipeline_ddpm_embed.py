@@ -47,12 +47,18 @@ class EmbeddedDDPMPipeline(DiffusionPipeline):
             # compute previous image: x_t -> x_t-1
             image = self.scheduler.step(model_output, t, image_with_z, generator=generator).prev_sample
 
+            # Reshape the output tensor to standard image format
+        # Assuming the model generates single-channel images
+        # Select only one channel (e.g., the first channel)
+        image = image[:, 0, :, :].unsqueeze(1)  # Reshape to [batch_size, 1, height, width]
+
+        print("Final image shape (before conversion):", image.shape)  # Debugging print
+
         image = (image / 2 + 0.5).clamp(0, 1)
-        image = image.cpu().permute(0, 2, 3, 1).numpy()
+        image = image.cpu().permute(0, 2, 3, 1).numpy()  # Change to (batch_size, height, width, channels)
+
+        # Convert to PIL images
         if output_type == "pil":
             image = self.numpy_to_pil(image)
-
-        if not return_dict:
-            return (image,)
 
         return ImagePipelineOutput(images=image)
