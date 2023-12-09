@@ -23,18 +23,17 @@ config = GenerationConfig()
 
 class CustomUNet2DModel(UNet2DModel):
     def __init__(self, num_z_coords, embedding_dim, *args, **kwargs):
-        # Adjust the in_channels to include the embedding dimension
-        kwargs["in_channels"] += embedding_dim  # Add the embedding dimension to the in_channels
+        # Calculate the total number of input channels (1 image channel + embedding_dim)
+        total_in_channels = 1 + embedding_dim
+        # Update the in_channels parameter before calling the base class initializer
+        kwargs["in_channels"] = total_in_channels
         super().__init__(*args, **kwargs)
         self.z_embedding = torch.nn.Embedding(num_z_coords, embedding_dim)
-        # Other initializations if necessary
 
     def forward(self, x, z_indices, timesteps, *args, **kwargs):
-        z_embedded = self.z_embedding(z_indices)  # Shape: [batch_size, embedding_dim]
-        z_embedded = z_embedded.view(z_embedded.shape[0], z_embedded.shape[1], 1, 1)
-        z_embedded = z_embedded.expand(-1, -1, x.shape[2], x.shape[3])
-        x_with_z = torch.cat([x, z_embedded], dim=1)  # Concatenate along the channel dimension
-        return super().forward(x_with_z, timesteps, *args, **kwargs)
+        # No need to concatenate z_embedding here, as it's already included in x
+        return super().forward(x, timesteps, *args, **kwargs)
+
 
 
 # Loading pre-trained weights
@@ -73,16 +72,25 @@ pipeline = EmbeddedDDPMPipeline(unet=pretrained_model, scheduler=noise_scheduler
 # Generate a sample conditioned on a specific z-coordinate
 z_coord = 3  # Example z-coordinate
 z_indices = torch.tensor([z_coord])  # Convert z_coord to a tensor
-z_embedded = pretrained_model.z_embedding(z_indices)
-z_embedded = z_embedded.view(1, config.embedding_dim, 1, 1).expand(-1, -1, 32, 32)
 
-# Generate the image
+# Generate the image using the pipeline with only z_indices (let the pipeline generate the noise)
 generated_image = pipeline(
     batch_size=1, 
     generator=torch.manual_seed(0), 
-    z_embedded=z_embedded, 
-    z_indices=z_indices  # Pass z_indices to the pipeline
+    z_indices=z_indices  # Pass only z_indices for conditional generation
 ).images[0]
-# Convert to PIL and save
+
+# Check the shape of the generated image
+print("Generated image shape:", generated_image.shape)
+
+# Assuming the generated image is grayscale, take the first channel
+# Adjust this part if working with RGB images
+if generated_image.shape[-1] != 1:
+    generated_image = generated_image[..., 0]
+
+# Check the shape after modification
+print("Modified image shape:", generated_image.shape)
+
+# Convert to PIL image
 generated_image_pil = transforms.functional.to_pil_image(generated_image)
 generated_image_pil.save("generated_sample.png")
