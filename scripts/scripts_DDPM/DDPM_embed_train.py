@@ -99,19 +99,21 @@ train_dataloader = torch.utils.data.DataLoader(dataset, batch_size=config.train_
 
 class CustomUNet2DModel(UNet2DModel):
     def __init__(self, num_z_coords, embedding_dim, *args, **kwargs):
+        # Calculate the total number of input channels (1 image channel + embedding_dim)
+        total_in_channels = 1 + embedding_dim
+        # Update the in_channels parameter before calling the base class initializer
+        kwargs["in_channels"] = total_in_channels
         super().__init__(*args, **kwargs)
         self.z_embedding = torch.nn.Embedding(num_z_coords, embedding_dim)
-        # Other initializations if necessary
 
     def forward(self, x, z_indices, timesteps, *args, **kwargs):
         z_embedded = self.z_embedding(z_indices)  # Shape: [batch_size, embedding_dim]
         z_embedded = z_embedded.view(z_embedded.shape[0], z_embedded.shape[1], 1, 1)
         z_embedded = z_embedded.expand(-1, -1, x.shape[2], x.shape[3])
-        
-        # Concatenate z embedding with the input along the channel dimension
-        x_with_z = torch.cat([x, z_embedded], dim=1)
-        
+        x_with_z = torch.cat([x, z_embedded], dim=1)  # Concatenate along the channel dimension
+        #print("Concatenated input shape:", x_with_z.shape)  # Should be [batch_size, 21, 32, 32]
         return super().forward(x_with_z, timesteps, *args, **kwargs)
+
 
 
 model = CustomUNet2DModel(
@@ -176,6 +178,7 @@ def train_loop(config, model, noise_scheduler, optimizer, train_dataloader, lr_s
             noisy_images = noise_scheduler.add_noise(clean_images, noise, timesteps)
             
             with accelerator.accumulate(model):
+                #print("Input shape:", noisy_images.shape)
                 noise_pred = model(noisy_images, z_indices, timesteps, return_dict=False)[0]
                 loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
