@@ -19,15 +19,15 @@ import re
 
 @dataclass
 class TrainingConfig:
-    image_size = 512
-    train_batch_size = 1
-    num_epochs = 200
+    image_size = 128
+    train_batch_size = 16
+    num_epochs = 2000
     gradient_accumulation_steps = 1
     learning_rate = 1e-4
     lr_warmup_steps = 500
-    save_model_epochs = 100
+    save_model_epochs = 500
     mixed_precision = "fp16"
-    output_dir = "DDPM_results_z2/"
+    output_dir = "DDPM_results_128_new/"
     overwrite_output_dir = False
     seed = 0
 
@@ -37,8 +37,7 @@ device = 'cuda' if torch.cuda.is_available() else 'cpu'
 # Assuming the files are in the current working directory
 image_slices = [file for file in os.listdir() if file.endswith('.tif')]
 image_slices.sort()
-#data_dir = '32x32_boxes/'
-data_dir = 'Test2/'
+data_dir = '128x128_boxes/'
 
 class TumorDataSet(Dataset):
     def __init__(self, data_dir, transform=None):
@@ -46,26 +45,61 @@ class TumorDataSet(Dataset):
         self.transform = transform
         self.image_files = sorted([f for f in os.listdir(data_dir) if f.endswith('.tif') and not f.startswith('._')])
 
+        # Extract min and max z-coordinates
+        z_coordinates = [self.extract_z_coordinate(file_name) for file_name in self.image_files]
+        valid_z_coordinates = [z for z in z_coordinates if z is not None]
+
+        if valid_z_coordinates:
+            self.min_z = min(valid_z_coordinates)
+            self.max_z = max(valid_z_coordinates)
+        else:
+            raise ValueError("No valid z-coordinates found in the dataset.")
+
+    def extract_z_coordinate(self, file_name):
+        pattern = r'(\d+)\.tif$'
+        match = re.search(pattern, file_name)
+
+        if match:
+            z_coordinate = int(match.group(1))
+            return z_coordinate
+        else:
+            return None
+
     def __len__(self):
         return len(self.image_files)
 
     def __getitem__(self, idx):
-        img_path = os.path.join(self.data_dir, self.image_files[idx])
-        try:
-            image = Image.open(img_path)
-            image = np.array(image, dtype=np.float32)
-            image = image / 65535.0  # Normalize the image
-            image_tensor = torch.tensor(image).unsqueeze(0)
-            if self.transform:
-                image_tensor = self.transform(image_tensor)
+        while True:
+            try:
+                img_path = os.path.join(self.data_dir, self.image_files[idx])
+                image = Image.open(img_path)
+                image = np.array(image, dtype=np.float32)
+                image = image / 65535.0  # Normalize the image
+                image_tensor = torch.tensor(image).unsqueeze(0)
 
-            z_coord = idx  # Assign z-coordinate based on the order
-            normalized_z = z_coord / (len(self.image_files) - 1)
-            shifted_z = 2 * normalized_z - 1
-            return image_tensor, shifted_z
-        except Exception as e:
-            print(f"Error processing image {img_path}: {e}")
-            return None
+                if self.transform:
+                    image_tensor = self.transform(image_tensor)
+
+                if image_tensor.size() != torch.Size([1, config.image_size, config.image_size]):
+                    print(f"Warning: Image {idx} at path {img_path} has unexpected size: {image_tensor.size()}")
+                    idx = (idx + 1) % len(self.image_files)
+                    continue
+
+                # Extract z-coordinate from filename
+                z_coordinate = self.extract_z_coordinate(self.image_files[idx])
+
+                if z_coordinate is not None:
+                    # Normalize z-coordinate between -1 and 1 based on the actual range
+                    normalized_z = 2 * ((z_coordinate - self.min_z) / (self.max_z - self.min_z)) - 1
+                    return image_tensor, normalized_z
+                else:
+                    print(f"Warning: Could not extract z-coordinate from filename {self.image_files[idx]}")
+                    idx = (idx + 1) % len(self.image_files)
+                    continue
+
+            except Exception as e:
+                print(f"Error processing image {img_path}: {e}")
+                return None
 
 # Define transformations
 transform = transforms.Compose([

@@ -13,13 +13,13 @@ import glob
 import numpy as np
 
 class GenerationConfig:
-    image_size = 512
-    eval_batch_size = 1
-    num_epochs = 200
-    z_coord = 0
-    num_images = 20
+    image_size = 128
+    eval_batch_size = 9
+    num_epochs = 2000
+    z_coord = 400
+    num_images = 500
     mixed_precision = "fp16"
-    output_dir = "DDPM_results_z2/"
+    output_dir = "DDPM_results_128_new/"
     seed = 0
 
 config = GenerationConfig()
@@ -59,23 +59,30 @@ noise_scheduler = DDPMScheduler(num_train_timesteps=1000)
 normalized_z = config.z_coord / (config.num_images - 1)
 shifted_z = 2 * normalized_z - 1
 z_coord_tensor = torch.tensor(shifted_z, dtype=torch.float).view(-1, 1, 1, 1).to(device)
-z_coord_tensor = torch.tensor(config.z_coord, dtype=torch.float).view(-1, 1, 1, 1).to(device)
 z_coord_tensor = z_coord_tensor.expand(-1, -1, config.image_size, config.image_size)
 
 # Generate samples
 pipeline = DDPMPipelineConditioned(unet=pretrained_model, scheduler=noise_scheduler, z_coord=z_coord_tensor)
 images = pipeline(batch_size=config.eval_batch_size, generator=torch.manual_seed(config.seed)).images
 
-# Save generated samples
-def make_grid(images, rows, cols):
+
+def make_grid(images, rows, cols, border_size=5, border_color=0):
     w, h = images[0].size
-    grid = Image.new("L", size=(cols * w, rows * h))
+    grid_w = cols * (w + border_size) - border_size
+    grid_h = rows * (h + border_size) - border_size
+    grid = Image.new("L", size=(grid_w, grid_h), color=border_color)
+
     for i, image in enumerate(images):
-        grid.paste(image.convert("L"), box=(i % cols * w, i // cols * h))
+        row = i // cols
+        col = i % cols
+        x = col * (w + border_size)
+        y = row * (h + border_size)
+        grid.paste(image.convert("L"), box=(x, y))
+
     return grid
 
 
-image_grid = make_grid(images, rows=4, cols=4)
+image_grid = make_grid(images, rows=3, cols=3)
 test_dir = os.path.join(config.output_dir, "generated_samples")
 os.makedirs(test_dir, exist_ok=True)
 image_grid.save(f"{test_dir}/model_epoch_{config.num_epochs}_zcoord_{config.z_coord}.png")
