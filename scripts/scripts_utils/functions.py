@@ -44,6 +44,68 @@ class TumorDataSet(Dataset):
 
 
 
+class TumorDataSet3Channels(Dataset):
+    def __init__(self, data_dir, transform=None):
+        self.data_dir = data_dir
+        self.transform = transform
+        self.image_files = []
+
+        for f in sorted(os.listdir(data_dir)):
+            if f.endswith('.tif') and not f.startswith('._'):
+                img_path = os.path.join(data_dir, f)
+                try:
+                    with Image.open(img_path) as img:
+                        img.verify()
+                    self.image_files.append(f)
+                except Exception as e:
+                    print(f"Skipping file {f} due to error: {e}")
+
+    def __len__(self):
+        return len(self.image_files)
+
+    def __getitem__(self, idx):
+        # Load the target image
+        target_image = self.load_image(idx)
+
+        # Load the previous and next images, handle edge cases
+        prev_image = self.load_image(max(idx - 1, 0))
+        next_image = self.load_image(min(idx + 1, len(self.image_files) - 1))
+
+        # Concatenate images along the channel dimension
+        combined_image = torch.cat([prev_image, target_image, next_image], dim=0)
+
+        return combined_image, idx
+
+    def load_image(self, idx):
+        img_path = os.path.join(self.data_dir, self.image_files[idx])
+        image = Image.open(img_path)
+        image = np.array(image, dtype=np.float32)
+
+        # Normalize the image for 16-bit depth
+        image = image / 65535.0
+        image_tensor = torch.tensor(image)
+
+        # Add a channel dimension and apply transformation
+        image_tensor = image_tensor.unsqueeze(0)
+        if self.transform:
+            image_tensor = self.transform(image_tensor)
+
+        return image_tensor
+    
+    def get_context_images(self, idx):
+        # Load the previous and next images, handle edge cases
+        prev_index = max(idx - 1, 0)
+        next_index = min(idx + 1, len(self.image_files) - 1)
+
+        prev_image = self.load_image(prev_index)
+        next_image = self.load_image(next_index)
+
+        # Concatenate images along the channel dimension
+        context_images = torch.cat([prev_image, next_image], dim=0)
+
+        return context_images
+
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
