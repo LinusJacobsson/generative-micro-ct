@@ -43,7 +43,6 @@ class TumorDataSet(Dataset):
         return image_tensor
 
 
-
 class TumorDataSet3Channels(Dataset):
     def __init__(self, data_dir, transform=None):
         self.data_dir = data_dir
