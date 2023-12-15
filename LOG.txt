@@ -140,3 +140,16 @@ Fredag
 - Skriv klart inledningen, dvs datan och teorin.
 - Skriv kod för att presentera reultat och börja skriva den delen. 
 
+=========================
+         Vecka 50
+=========================
+- Fortsatt att skriva på rapporten, fortfarande inte klar med teoridelen.
+- Ändrade sätt för betingningen, från z-koordinaten till grannarna.
+- Börjat implementera Ziweis kod med grannar som betingning.
+
+=========================
+   Plan för Vecka 51
+=========================
+- Skriv klart all inledning + teori i rapporten.
+- Utvärdera resultaten av de två metoderna vi har för betingning.
+
